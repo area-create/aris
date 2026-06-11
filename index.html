@@ -323,7 +323,7 @@
     // ── 설정 ─────────────────────────────────────────────────────────────
     // Lively Wallpaper에서 웹페이지를 호스팅 URL로 불러올 때,
     // 로컬 Flask 서버는 여전히 127.0.0.1:5000 에서 실행됩니다.
-    const SERVER_URL = 'http://127.0.0.1:5000';
+    const SERVER_URL = 'https://backhand-jubilance-daisy.ngrok-free.dev';
     const CHAT_URL   = `${SERVER_URL}/chat`;
     const HEALTH_URL = `${SERVER_URL}/health`;
     const RESET_URL  = `${SERVER_URL}/reset`;
@@ -343,7 +343,7 @@
     // ── 서버 상태 확인 ────────────────────────────────────────────────────
     async function checkServerHealth() {
         try {
-            const res = await fetch(HEALTH_URL, { method: 'GET', signal: AbortSignal.timeout(3000) });
+            const res = await fetch(HEALTH_URL, { method: 'GET', signal: AbortSignal.timeout(3000), headers: { 'ngrok-skip-browser-warning': 'true' } });
             if (res.ok) {
                 statusDot.className = 'status-dot online';
                 statusText.textContent = 'ARIS ONLINE';
