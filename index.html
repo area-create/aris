@@ -290,6 +290,7 @@
             class="chat-input"
             placeholder="아리스에게 명령 또는 질문을 입력하세요..."
             autocomplete="off"
+            lang="ko"
         >
         <div class="btn-group">
             <button class="reset-btn" id="resetBtn" title="대화 초기화">↺</button>
@@ -313,7 +314,6 @@
     const HEALTH_URL = `${SERVER_URL}/health`;
     const RESET_URL  = `${SERVER_URL}/reset`;
 
-    // ngrok 경고 페이지를 우회하는 공통 헤더
     const NGROK_HEADERS = {
         'ngrok-skip-browser-warning': '1',
         'User-Agent': 'ArisDesktop/1.0'
@@ -330,7 +330,11 @@
     let isProcessing = false;
     let typeTimer = null;
 
-    // ── 서버 상태 확인 ────────────────────────────────────────────────────
+    // ── 💡 [버그 예방] 입력창 클릭 시 한글 모드 강제 유치 스크립트 ──
+    chatInput.addEventListener('focus', () => {
+        chatInput.setAttribute('type', 'text');
+    });
+
     async function checkServerHealth() {
         try {
             const res = await fetch(HEALTH_URL, {
@@ -353,7 +357,6 @@
     checkServerHealth();
     setInterval(checkServerHealth, 30000);
 
-    // ── 타이핑 효과 ───────────────────────────────────────────────────────
     function typeEffect(text, speed = 35) {
         clearTimeout(typeTimer);
         chatText.textContent = '';
@@ -367,7 +370,6 @@
         step();
     }
 
-    // ── 메시지 전송 ───────────────────────────────────────────────────────
     async function sendMessage() {
         const message = chatInput.value.trim();
         if (!message || isProcessing) return;
@@ -408,7 +410,6 @@
         }
     }
 
-    // ── 대화 초기화 ───────────────────────────────────────────────────────
     async function resetChat() {
         try {
             const res = await fetch(RESET_URL, {
@@ -422,7 +423,6 @@
         }
     }
 
-    // ── 이벤트 리스너 ────────────────────────────────────────────────────
     sendBtn.addEventListener('click', sendMessage);
     resetBtn.addEventListener('click', resetChat);
     chatInput.addEventListener('keypress', e => {
