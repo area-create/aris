@@ -20,7 +20,6 @@
             color: #ffffff;
         }
 
-        /* ── 메인 컨테이너 ── */
         .container {
             position: relative;
             width: 100%;
@@ -32,7 +31,6 @@
             padding-bottom: 50px;
         }
 
-        /* ── 아리스 캐릭터 (우측 하단) ── */
         .aris-container {
             position: absolute;
             bottom: 20px;
@@ -53,7 +51,6 @@
             filter: drop-shadow(0 0 20px rgba(0, 163, 255, 0.6));
         }
 
-        /* ── 말풍선 ── */
         .chat-bubble-container {
             position: absolute;
             bottom: 160px;
@@ -97,7 +94,6 @@
             overflow-y: auto;
         }
 
-        /* 스피커 이름 */
         .speaker-name {
             font-size: 11px;
             font-weight: bold;
@@ -113,7 +109,6 @@
             word-break: break-word;
         }
 
-        /* ── 로딩 애니메이션 ── */
         .loading-dots {
             display: none;
             align-items: center;
@@ -143,7 +138,6 @@
             40% { transform: scale(1); opacity: 1; }
         }
 
-        /* ── 입력창 ── */
         .input-container {
             width: 560px;
             display: flex;
@@ -184,7 +178,6 @@
             font-size: 13px;
         }
 
-        /* 우측 버튼 그룹 */
         .btn-group {
             display: flex;
             gap: 6px;
@@ -211,9 +204,7 @@
             transform: translateY(-1px);
         }
 
-        .send-btn:active {
-            transform: translateY(0);
-        }
+        .send-btn:active { transform: translateY(0); }
 
         .reset-btn {
             background: transparent;
@@ -232,7 +223,6 @@
             background: rgba(0, 163, 255, 0.08);
         }
 
-        /* ── 서버 상태 표시기 ── */
         .status-indicator {
             position: absolute;
             top: 20px;
@@ -263,7 +253,6 @@
         .status-dot.online  { background: #00e676; box-shadow: 0 0 6px #00e676; }
         .status-dot.offline { background: #ff5252; box-shadow: 0 0 6px #ff5252; }
 
-        /* 스크롤바 */
         .chat-bubble::-webkit-scrollbar { width: 3px; }
         .chat-bubble::-webkit-scrollbar-thumb {
             background: rgba(0, 163, 255, 0.4);
@@ -275,13 +264,11 @@
 
 <div class="container">
 
-    <!-- 서버 상태 표시기 -->
     <div class="status-indicator">
         <div class="status-dot" id="statusDot"></div>
         <span id="statusText">서버 연결 중...</span>
     </div>
 
-    <!-- 말풍선 -->
     <div class="chat-bubble-container">
         <div class="ui-tag">MILLENNIUM AI SYSTEM · ARIS v2.0</div>
         <div class="chat-bubble" id="chatBubble">
@@ -296,7 +283,6 @@
         </div>
     </div>
 
-    <!-- 입력창 -->
     <div class="input-container">
         <input
             type="text"
@@ -311,7 +297,6 @@
         </div>
     </div>
 
-    <!-- 아리스 캐릭터 이미지 -->
     <div class="aris-container">
         <img src="aris_maid.png" alt="Aris" class="aris-image" id="arisCharacter"
              onerror="this.style.display='none'">
@@ -320,14 +305,19 @@
 </div>
 
 <script>
-    // ── 설정 ─────────────────────────────────────────────────────────────
-    // Lively Wallpaper에서 웹페이지를 호스팅 URL로 불러올 때,
-    // 로컬 Flask 서버는 여전히 127.0.0.1:5000 에서 실행됩니다.
+    // ── ngrok 주소 (매번 ngrok 재시작 시 이 값만 교체) ──────────────────
     const SERVER_URL = 'https://backhand-jubilance-daisy.ngrok-free.dev';
+    // ──────────────────────────────────────────────────────────────────────
+
     const CHAT_URL   = `${SERVER_URL}/chat`;
     const HEALTH_URL = `${SERVER_URL}/health`;
     const RESET_URL  = `${SERVER_URL}/reset`;
-    // ──────────────────────────────────────────────────────────────────────
+
+    // ngrok 경고 페이지를 우회하는 공통 헤더
+    const NGROK_HEADERS = {
+        'ngrok-skip-browser-warning': '1',
+        'User-Agent': 'ArisDesktop/1.0'
+    };
 
     const chatInput   = document.getElementById('chatInput');
     const sendBtn     = document.getElementById('sendBtn');
@@ -343,7 +333,11 @@
     // ── 서버 상태 확인 ────────────────────────────────────────────────────
     async function checkServerHealth() {
         try {
-            const res = await fetch(HEALTH_URL, { method: 'GET', signal: AbortSignal.timeout(3000), headers: { 'ngrok-skip-browser-warning': 'true' } });
+            const res = await fetch(HEALTH_URL, {
+                method: 'GET',
+                signal: AbortSignal.timeout(3000),
+                headers: NGROK_HEADERS
+            });
             if (res.ok) {
                 statusDot.className = 'status-dot online';
                 statusText.textContent = 'ARIS ONLINE';
@@ -356,7 +350,6 @@
         }
     }
 
-    // 최초 + 30초마다 상태 확인
     checkServerHealth();
     setInterval(checkServerHealth, 30000);
 
@@ -365,7 +358,6 @@
         clearTimeout(typeTimer);
         chatText.textContent = '';
         let i = 0;
-
         function step() {
             if (i < text.length) {
                 chatText.textContent += text[i++];
@@ -383,15 +375,16 @@
         isProcessing = true;
         chatInput.value = '';
         sendBtn.disabled = true;
-
-        // 로딩 표시
         chatText.textContent = '';
         loadingDots.style.display = 'flex';
 
         try {
             const res = await fetch(CHAT_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': 'true' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...NGROK_HEADERS
+                },
                 body: JSON.stringify({ message }),
                 signal: AbortSignal.timeout(30000),
             });
@@ -399,8 +392,6 @@
             const data = await res.json();
             loadingDots.style.display = 'none';
             typeEffect(data.reply || '응답을 받지 못했습니다, 선생님.');
-
-            // 서버 정상 응답 시 상태 업데이트
             statusDot.className = 'status-dot online';
             statusText.textContent = 'ARIS ONLINE';
 
@@ -420,7 +411,10 @@
     // ── 대화 초기화 ───────────────────────────────────────────────────────
     async function resetChat() {
         try {
-            const res = await fetch(RESET_URL, { method: 'POST' });
+            const res = await fetch(RESET_URL, {
+                method: 'POST',
+                headers: NGROK_HEADERS
+            });
             const data = await res.json();
             typeEffect(data.reply);
         } catch {
