@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aris AI Desktop Assistant</title>
+    
+    <!-- Live2D & PIXI Libraries -->
+    <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pixi.js@6.5.2/dist/browser/pixi.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display/dist/index.min.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -20,6 +26,7 @@
             color: #ffffff;
         }
 
+        /* ── 메인 컨테이너 ── */
         .container {
             position: relative;
             width: 100%;
@@ -31,6 +38,7 @@
             padding-bottom: 50px;
         }
 
+        /* ── 아리스 캐릭터 (우측 하단) ── */
         .aris-container {
             position: absolute;
             bottom: 20px;
@@ -41,16 +49,15 @@
             justify-content: center;
             align-items: flex-end;
             z-index: 1;
-            pointer-events: none;
         }
 
-        .aris-image {
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
+        #live2d-canvas {
+            width: 100%;
+            height: 100%;
             filter: drop-shadow(0 0 20px rgba(0, 163, 255, 0.6));
         }
 
+        /* ── 말풍선 ── */
         .chat-bubble-container {
             position: absolute;
             bottom: 160px;
@@ -94,6 +101,7 @@
             overflow-y: auto;
         }
 
+        /* 스피커 이름 */
         .speaker-name {
             font-size: 11px;
             font-weight: bold;
@@ -109,6 +117,7 @@
             word-break: break-word;
         }
 
+        /* ── 로딩 애니메이션 ── */
         .loading-dots {
             display: none;
             align-items: center;
@@ -138,6 +147,7 @@
             40% { transform: scale(1); opacity: 1; }
         }
 
+        /* ── 입력창 ── */
         .input-container {
             width: 560px;
             display: flex;
@@ -178,6 +188,7 @@
             font-size: 13px;
         }
 
+        /* 우측 버튼 그룹 */
         .btn-group {
             display: flex;
             gap: 6px;
@@ -204,7 +215,9 @@
             transform: translateY(-1px);
         }
 
-        .send-btn:active { transform: translateY(0); }
+        .send-btn:active {
+            transform: translateY(0);
+        }
 
         .reset-btn {
             background: transparent;
@@ -223,6 +236,7 @@
             background: rgba(0, 163, 255, 0.08);
         }
 
+        /* ── 서버 상태 표시기 ── */
         .status-indicator {
             position: absolute;
             top: 20px;
@@ -253,6 +267,7 @@
         .status-dot.online  { background: #00e676; box-shadow: 0 0 6px #00e676; }
         .status-dot.offline { background: #ff5252; box-shadow: 0 0 6px #ff5252; }
 
+        /* 스크롤바 */
         .chat-bubble::-webkit-scrollbar { width: 3px; }
         .chat-bubble::-webkit-scrollbar-thumb {
             background: rgba(0, 163, 255, 0.4);
@@ -264,11 +279,13 @@
 
 <div class="container">
 
+    <!-- 서버 상태 표시기 -->
     <div class="status-indicator">
         <div class="status-dot" id="statusDot"></div>
         <span id="statusText">서버 연결 중...</span>
     </div>
 
+    <!-- 말풍선 -->
     <div class="chat-bubble-container">
         <div class="ui-tag">MILLENNIUM AI SYSTEM · ARIS v2.0</div>
         <div class="chat-bubble" id="chatBubble">
@@ -283,6 +300,7 @@
         </div>
     </div>
 
+    <!-- 입력창 -->
     <div class="input-container">
         <input
             type="text"
@@ -297,27 +315,67 @@
         </div>
     </div>
 
+    <!-- 아리스 캐릭터 (Live2D Canvas) -->
     <div class="aris-container">
-        <img src="aris_maid.png" alt="Aris" class="aris-image" id="arisCharacter"
-             onerror="this.style.display='none'">
+        <canvas id="live2d-canvas"></canvas>
     </div>
 
 </div>
 
 <script>
-    // ── ngrok 주소 (매번 ngrok 재시작 시 이 값만 교체) ──────────────────
-    const SERVER_URL = 'https://backhand-jubilance-daisy.ngrok-free.dev';
-    // ──────────────────────────────────────────────────────────────────────
+    // ── Live2D 및 PIXI 설정 ──────────────────────────────────────────────
+    const canvas = document.getElementById('live2d-canvas');
+    const app = new PIXI.Application({
+        view: canvas,
+        transparent: true,
+        autoStart: true,
+        resizeTo: canvas
+    });
 
+    let live2dModel;
+
+    // 💡 중요: 다운로드하신 폴더 이름과 model3.json 파일명에 맞춰서 여기를 수정해 주세요!
+    // 예시: 폴더 이름이 'aris'고 파일이 'aris.model3.json'이라면 -> 'aris/aris.model3.json'
+    const modelPath = 'aris_home/project.json'; 
+
+    async function initLive2D() {
+        try {
+            // pixi-live2d-display 로드
+            live2dModel = await PIXI.live2d.Live2DModel.from(modelPath);
+            app.stage.addChild(live2dModel);
+
+            // 캔버스 크기에 맞춰 모델 스케일 및 위치 자동 조정
+            const scale = Math.min(canvas.width / live2dModel.width, canvas.height / live2dModel.height) * 0.9;
+            live2dModel.scale.set(scale);
+            live2dModel.x = (canvas.width - live2dModel.width * scale) / 2;
+            live2dModel.y = canvas.height - live2dModel.height * scale;
+
+            // 1. 시선 추적 (Eye-tracking) 적용
+            window.addEventListener('mousemove', (event) => {
+                // 화면 중앙을 0, 끝을 1, -1로 정규화
+                const x = (event.clientX / window.innerWidth) * 2 - 1;
+                const y = (event.clientY / window.innerHeight) * 2 - 1;
+                // Live2D 모델의 focus를 업데이트하여 마우스를 쳐다보게 함
+                live2dModel.focus(x, y);
+            });
+
+            console.log("Live2D 모델 로드 성공!");
+        } catch (error) {
+            console.error("Live2D 로드 실패: 폴더 경로와 파일명을 확인해주세요.", error);
+            statusText.textContent = 'Live2D 로드 실패';
+        }
+    }
+    
+    initLive2D();
+
+    // ── 설정 ─────────────────────────────────────────────────────────────
+    // Lively Wallpaper에서 웹페이지를 호스팅 URL로 불러올 때,
+    // 로컬 Flask 서버는 여전히 127.0.0.1:5000 에서 실행됩니다.
+    const SERVER_URL = 'https://backhand-jubilance-daisy.ngrok-free.dev;
     const CHAT_URL   = `${SERVER_URL}/chat`;
     const HEALTH_URL = `${SERVER_URL}/health`;
     const RESET_URL  = `${SERVER_URL}/reset`;
-
-    // ngrok 경고 페이지를 우회하는 공통 헤더
-    const NGROK_HEADERS = {
-        'ngrok-skip-browser-warning': '1',
-        'User-Agent': 'ArisDesktop/1.0'
-    };
+    // ──────────────────────────────────────────────────────────────────────
 
     const chatInput   = document.getElementById('chatInput');
     const sendBtn     = document.getElementById('sendBtn');
@@ -333,11 +391,7 @@
     // ── 서버 상태 확인 ────────────────────────────────────────────────────
     async function checkServerHealth() {
         try {
-            const res = await fetch(HEALTH_URL, {
-                method: 'GET',
-                signal: AbortSignal.timeout(3000),
-                headers: NGROK_HEADERS
-            });
+            const res = await fetch(HEALTH_URL, { method: 'GET', signal: AbortSignal.timeout(3000) });
             if (res.ok) {
                 statusDot.className = 'status-dot online';
                 statusText.textContent = 'ARIS ONLINE';
@@ -350,6 +404,7 @@
         }
     }
 
+    // 최초 + 30초마다 상태 확인
     checkServerHealth();
     setInterval(checkServerHealth, 30000);
 
@@ -358,6 +413,7 @@
         clearTimeout(typeTimer);
         chatText.textContent = '';
         let i = 0;
+
         function step() {
             if (i < text.length) {
                 chatText.textContent += text[i++];
@@ -365,6 +421,28 @@
             }
         }
         step();
+    }
+
+    // ── 감정 표현 (Live2D 모션/표정 제어) ──────────────────────────────────
+    function changeArisEmotion(emotion) {
+        if (!live2dModel) return;
+
+        // 다운로드하신 모델에 내장된 표정(Expression)이나 모션(Motion) 파일 이름에 맞춰 매핑해야 합니다.
+        // 아래는 구조를 보여주는 예시입니다.
+        try {
+            if (emotion === "기쁨") {
+                // live2dModel.expression("Smile");
+                // live2dModel.motion("TapBody", 0, 3); // 3은 우선순위(강제재생)
+            } else if (emotion === "놀람") {
+                // live2dModel.expression("Surprise");
+            } else if (emotion === "슬픔") {
+                // live2dModel.expression("Sad");
+            } else {
+                // live2dModel.expression("Neutral");
+            }
+        } catch(e) {
+            console.warn("표정 변경 실패:", e);
+        }
     }
 
     // ── 메시지 전송 ───────────────────────────────────────────────────────
@@ -375,23 +453,37 @@
         isProcessing = true;
         chatInput.value = '';
         sendBtn.disabled = true;
+
+        // 로딩 표시
         chatText.textContent = '';
         loadingDots.style.display = 'flex';
 
         try {
             const res = await fetch(CHAT_URL, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    ...NGROK_HEADERS
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message }),
                 signal: AbortSignal.timeout(30000),
             });
 
             const data = await res.json();
             loadingDots.style.display = 'none';
-            typeEffect(data.reply || '응답을 받지 못했습니다, 선생님.');
+
+            let replyText = data.reply || '응답을 받지 못했습니다, 선생님.';
+            let currentEmotion = '기본'; // 기본값
+
+            // 정규식을 사용해 [감정] 태그 추출
+            const emotionMatch = replyText.match(/^\[(.*?)\]\s*/);
+            if (emotionMatch) {
+                currentEmotion = emotionMatch[1]; // 예: '기쁨', '슬픔'
+                replyText = replyText.replace(/^\[(.*?)\]\s*/, ''); // 화면 텍스트에서는 태그 삭제
+            }
+
+            // 텍스트 출력 및 감정 표현
+            typeEffect(replyText);
+            changeArisEmotion(currentEmotion);
+
+            // 서버 정상 응답 시 상태 업데이트
             statusDot.className = 'status-dot online';
             statusText.textContent = 'ARIS ONLINE';
 
@@ -411,10 +503,7 @@
     // ── 대화 초기화 ───────────────────────────────────────────────────────
     async function resetChat() {
         try {
-            const res = await fetch(RESET_URL, {
-                method: 'POST',
-                headers: NGROK_HEADERS
-            });
+            const res = await fetch(RESET_URL, { method: 'POST' });
             const data = await res.json();
             typeEffect(data.reply);
         } catch {
@@ -432,3 +521,4 @@
 
 </body>
 </html>
+```
